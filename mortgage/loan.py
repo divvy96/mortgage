@@ -27,7 +27,7 @@ class Loan(object):
 
     def __init__(self, principal, interest, term, term_unit='years', compounded='monthly', currency='$'):
 
-        term_units = {'days', 'months', 'years'}
+        term_units = {'days': 365, 'months': 12, 'years': 1}
         compound = {'daily', 'monthly', 'annually'}
 
         assert principal > 0, 'Principal must be positive value'
@@ -46,6 +46,7 @@ class Loan(object):
         self.interest = Decimal(interest * 100) / 100
         self.term = term
         self.term_unit = term_unit
+        self.term_multiplier = term_units[term_unit]
         self.compounded = compounded
         self.n_periods = periods[compounded]
         self._schedule = self._amortize()
@@ -80,7 +81,7 @@ class Loan(object):
         _int = self.interest
         num = self.n_periods
         term = self.term
-        payment = principal * _int / num / (1 - (1 + _int / num) ** (- num * term))
+        payment = principal * _int / num / (1 - (1 + _int / num) ** (- num * term * term_multiplier))
         return payment
 
     @property
@@ -198,7 +199,7 @@ class Loan(object):
             >>> loan.years_to_pay
             15.0
         """
-        return round(self.term * self.n_periods / 12, 1)
+        return round(self.term * self.n_periods / 12 / term_multiplier, 1)
 
     @property
     def summarize(self):
