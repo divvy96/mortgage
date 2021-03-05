@@ -27,7 +27,7 @@ class Loan(object):
 
     def __init__(self, principal, interest, term, term_unit='years', compounded='monthly', currency='$'):
 
-        term_units = {'days', 'months', 'years'}
+        term_units = {'days': 365, 'months': 12, 'years': 1}
         compound = {'daily', 'monthly', 'annually'}
 
         assert principal > 0, 'Principal must be positive value'
@@ -42,8 +42,10 @@ class Loan(object):
             'annually': 1
         }
 
+
         self.principal = Decimal(principal)
-        self.interest = Decimal(interest * 100) / 100
+        self.term_multiplier = term_units[term_unit]
+        self.interest = Decimal(interest * 100) / 100 * self.term_multiplier
         self.term = term
         self.term_unit = term_unit
         self.compounded = compounded
@@ -80,7 +82,7 @@ class Loan(object):
         _int = self.interest
         num = self.n_periods
         term = self.term
-        payment = principal * _int / num / (1 - (1 + _int / num) ** (- num * term))
+        payment = principal * _int / num / (1 - (1 + _int / num) ** (- num * term / Decimal(self.term_multiplier)))
         return payment
 
     @property
@@ -159,7 +161,7 @@ class Loan(object):
             >>> loan.total_interest
             Decimal('103788.46')
         """
-        return self._quantize(self.schedule(self.term * self.n_periods).total_interest)
+        return self._quantize(self.schedule(int(self.term / self.term_multiplier * self.n_periods)).total_interest)
 
     @property
     def total_paid(self) -> Decimal:
@@ -198,7 +200,7 @@ class Loan(object):
             >>> loan.years_to_pay
             15.0
         """
-        return round(self.term * self.n_periods / 12, 1)
+        return round(self.term / self.term_multiplier * self.n_periods / 12, 1)
 
     @property
     def summarize(self):
@@ -233,9 +235,9 @@ class Loan(object):
             _int = self.interest / 12
             _intp1 = _int + 1
 
-            numerator = self.principal * _int * (_intp1 ** (self.n_periods * self.term + 1)
+            numerator = self.principal * _int * (_intp1 ** (self.n_periods * self.term / Decimal(self.term_multiplier) + 1)
                                                  - _intp1 ** payment_number)
-            denominator = _intp1 * (_intp1 ** (self.n_periods * self.term) - 1)
+            denominator = _intp1 * (_intp1 ** (self.n_periods * self.term / Decimal(self.term_multiplier)) - 1)
             return numerator / denominator
 
         interest_payment = compute_interest_portion(number)
@@ -252,7 +254,7 @@ class Loan(object):
         schedule = [initialize]
         total_interest = 0
         balance = self.principal
-        for payment_number in range(1, self.term * self.n_periods + 1):
+        for payment_number in range(1, int(self.term / self.term_multiplier * self.n_periods + 1)):
 
             split = self.split_payment(payment_number, self._monthly_payment)
             interest_payment, principal_payment = split
